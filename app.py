@@ -182,7 +182,7 @@ if "last_updated_krt" not in st.session_state:
     st.session_state["last_updated_krt"] = None
 
 st.title("Bond & Macro Dashboard")
-st.caption("한국·미국 채권시장과 핵심 거시경제 지표를 한 화면에서 확인하는 대시보드")
+st.caption("한국·미국 채권시장과 핵심 거시경제 지표를 한 화면에서 확인하는 대시보드입니다.")
 
 time_col, refresh_col = st.columns([5.2, 1.25])
 with time_col:
