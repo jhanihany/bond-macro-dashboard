@@ -9,9 +9,7 @@ import requests
 import streamlit as st
 
 
-# =========================================================
 # App config
-# =========================================================
 st.set_page_config(
     page_title="Bond & Macro Dashboard",
     page_icon="📊",
@@ -26,9 +24,7 @@ ECOS_API_KEY = st.secrets.get("ECOS_API_KEY", "")
 BLS_API_KEY = st.secrets.get("BLS_API_KEY", "")
 
 
-# =========================================================
 # Style
-# =========================================================
 st.markdown(
     """
     <style>
@@ -113,9 +109,7 @@ st.markdown(
 )
 
 
-# =========================================================
 # Session / clock / refresh
-# =========================================================
 now_utc = datetime.now(UTC_TZ)
 now_korea = now_utc.astimezone(KOREA_TZ)
 now_new_york = now_utc.astimezone(NEW_YORK_TZ)
@@ -130,7 +124,7 @@ if "last_updated_krt" not in st.session_state:
     st.session_state["last_updated_krt"] = None
 
 st.title("Bond & Macro Dashboard")
-st.caption("한국·미국 채권시장과 핵심 거시경제 지표를 한 화면에서 확인하는 대시보드")
+st.caption("한국·미국 채권시장과 핵심 매크로지표를 한 화면에서 확인하는 대시보드입니다.")
 
 time_col, refresh_col = st.columns([5.2, 1.25])
 with time_col:
@@ -151,9 +145,7 @@ if refresh_clicked:
     st.cache_data.clear()
 
 
-# =========================================================
 # Common helpers
-# =========================================================
 def empty_df():
     return pd.DataFrame(columns=["date", "value"])
 
@@ -600,9 +592,7 @@ def styled_macro_table(rows):
     return styler
 
 
-# =========================================================
 # Data sources
-# =========================================================
 @st.cache_data(ttl=600)
 def get_treasury_curve():
     year = datetime.now(KOREA_TZ).year
@@ -1531,9 +1521,7 @@ def select_industrial_series(raw_df, mode):
     return selected, chosen
 
 
-# =========================================================
 # Load data with visible progress
-# =========================================================
 loading_title = (
     "최신 데이터를 다시 수집하는 중입니다..."
     if refresh_clicked
@@ -1708,9 +1696,7 @@ if st.session_state["last_updated_krt"]:
     )
 
 
-# =========================================================
 # Build result table
-# =========================================================
 rows = []
 
 for name in [
@@ -1945,9 +1931,7 @@ if (
     )
 
 
-# =========================================================
 # Dashboard layout
-# =========================================================
 result = pd.DataFrame(rows)
 
 if result.empty:
@@ -1969,9 +1953,7 @@ st.caption(
     "정책금리는 실제 정책결정 발표일"
 )
 
-# ---------------------------------------------------------
 # 상단: Today Market Snapshot
-# ---------------------------------------------------------
 st.header("1. Today Market Snapshot")
 
 fed_row = get_row(
@@ -2092,9 +2074,7 @@ for col, item in zip(
 
 st.divider()
 
-# ---------------------------------------------------------
 # 중단: Rates & Curve
-# ---------------------------------------------------------
 st.header("2. Rates & Curve")
 
 us2_row = get_row(result, "미국 2Y")
@@ -2216,9 +2196,7 @@ with rates_right:
 
 st.divider()
 
-# ---------------------------------------------------------
 # 하단: Macro
-# ---------------------------------------------------------
 st.header("3. Macro")
 
 st.caption(
