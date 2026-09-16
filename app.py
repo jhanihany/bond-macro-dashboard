@@ -27,7 +27,7 @@ if "last_updated_krt" not in st.session_state:
     st.session_state["last_updated_krt"] = None
 
 st.title("Bond & Macro Dashboard")
-st.caption("한국시간 오전 9시 기준으로 확인하기 위한 미국·한국 채권시장 및 주요 거시경제 지표")
+st.caption("최신 데이터 수집 버튼을 클릭하면 미국·한국 채권시장 및 주요 거시경제 지표가 수집됩니다.")
 
 time_col, refresh_col = st.columns([4.5, 1.3])
 with time_col:
@@ -48,7 +48,6 @@ if refresh_clicked:
 # Secrets
 # ==============================
 ECOS_API_KEY = st.secrets.get("ECOS_API_KEY", "")
-EIA_API_KEY = st.secrets.get("EIA_API_KEY", "")
 BLS_API_KEY = st.secrets.get("BLS_API_KEY", "")
 
 # ==============================
@@ -187,19 +186,59 @@ def get_bls(series_ids):
         return {}
 
 # ==============================
-# EIA - WTI
+# Market WTI Futures - Yahoo Finance
+# CL=F: NYMEX WTI Crude Oil Futures
+# EIA 현물가격보다 업데이트가 빠른 시장가격을 사용합니다.
 # ==============================
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)
 def get_wti():
-    if not EIA_API_KEY:
-        return empty_df()
-    url = f"https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key={EIA_API_KEY}&frequency=daily&data[0]=value&facets[series][]=RWTC&sort[0][column]=period&sort[0][direction]=desc&length=100"
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF"
+    params = {
+        "range": "1mo",
+        "interval": "1d",
+        "includePrePost": "false",
+        "events": "div,splits"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
     try:
-        r = requests.get(url, timeout=20)
+        r = requests.get(url, params=params, headers=headers, timeout=20)
         r.raise_for_status()
-        data = r.json().get("response", {}).get("data", [])
-        rows = [{"date": pd.to_datetime(x.get("period"), errors="coerce"), "value": pd.to_numeric(x.get("value"), errors="coerce")} for x in data]
-        return pd.DataFrame(rows).dropna().sort_values("date")
+        payload = r.json()
+
+        result = payload.get("chart", {}).get("result", [])
+        if not result:
+            return empty_df()
+
+        chart = result[0]
+        timestamps = chart.get("timestamp", [])
+        quote = chart.get("indicators", {}).get("quote", [{}])[0]
+        closes = quote.get("close", [])
+
+        rows = []
+        for ts, close in zip(timestamps, closes):
+            if close is None:
+                continue
+
+            # Yahoo timestamp를 미국 뉴욕시간의 거래일로 변환
+            dt_et = datetime.fromtimestamp(ts, tz=ZoneInfo("UTC")).astimezone(NEW_YORK_TZ)
+            rows.append({
+                "date": pd.Timestamp(dt_et.date()),
+                "value": pd.to_numeric(close, errors="coerce")
+            })
+
+        if not rows:
+            return empty_df()
+
+        return (
+            pd.DataFrame(rows)
+            .dropna()
+            .drop_duplicates(subset=["date"], keep="last")
+            .sort_values("date")
+        )
+
     except Exception:
         return empty_df()
 
@@ -328,7 +367,7 @@ treasury_real = get_treasury_real_curve()
 show_loading("U.S. BLS · CPI·Core CPI·실업률·NFP 로딩 중")
 bls = get_bls(["CUSR0000SA0", "CUSR0000SA0L1E", "LNS14000000", "CES0000000001"])
 
-show_loading("U.S. EIA · WTI 유가 로딩 중")
+show_loading("시장데이터 · WTI 선물가격(CL=F) 로딩 중")
 wti = get_wti()
 
 show_loading("New York Fed · EFFR 로딩 중")
@@ -379,7 +418,7 @@ if not treasury.get("미국 10Y", empty_df()).empty and not treasury_real.get("�
 
 add_row(rows, "미국", "미국 실질 10Y", treasury_real.get("미국 실질 10Y", empty_df()), "일간", "rate")
 add_row(rows, "미국", "EFFR", effr, "정책금리", "policy")
-add_row(rows, "미국", "WTI", wti, "일간", "pct")
+add_row(rows, "미국", "WTI 선물 (CL=F)", wti, "일간", "pct")
 
 # BLS
 for sid, name, value_type in [
@@ -421,14 +460,39 @@ if result.empty:
     st.error("데이터를 불러오지 못했습니다. Streamlit Secrets의 API 키와 각 API 상태를 확인해주세요.")
 else:
     result["변화"] = [format_change(c, t) for c, t in zip(result["변화값"], result["type"])]
-    result["기준일"] = pd.to_datetime(result["기준일"]).dt.strftime("%Y-%m-%d")
     result["현재"] = result["현재"].apply(lambda x: f"{x:,.2f}")
-    latest = result["기준일"].max()
-    st.info(f"표시되는 기준일은 각 데이터 제공기관의 **최신 발표일**입니다. 오늘 날짜와 다를 수 있습니다. 전체 데이터 조회 기준: {latest}")
+
+    # 기준일 표시 규칙
+    # - 일간/정책금리: 실제 관측일 YYYY-MM-DD
+    # - 월간: 해당 지표가 의미하는 기준월 YYYY-MM
+    result["기준일"] = pd.to_datetime(result["기준일"])
+
+    st.info(
+        "기준일은 **일간 지표의 실제 관측일**, **월간 지표의 기준월**을 의미합니다. "
+        "예: 미국 CPI `2026-08`은 2026년 8월분 CPI입니다. "
+        "WTI는 EIA 현물가격이 아니라 **시장 WTI 선물(CL=F)** 가격을 사용합니다."
+    )
+
     for freq in ["일간", "월간", "정책금리"]:
-        temp = result[result["빈도"] == freq]
+        temp = result[result["빈도"] == freq].copy()
         if temp.empty:
             continue
+
+        if freq == "월간":
+            temp["기준일"] = temp["기준일"].dt.strftime("%Y-%m")
+        else:
+            temp["기준일"] = temp["기준일"].dt.strftime("%Y-%m-%d")
+
         st.subheader(f"📊 {freq} 지표")
-        st.dataframe(temp[["구분", "지표", "기준일", "현재", "변화"]].reset_index(drop=True), use_container_width=True, hide_index=True)
-    st.caption("출처: U.S. Treasury · U.S. Bureau of Labor Statistics · U.S. Energy Information Administration · Federal Reserve Bank of New York · Bank of Korea ECOS")
+        st.dataframe(
+            temp[["구분", "지표", "기준일", "현재", "변화"]].reset_index(drop=True),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    st.caption(
+        "출처: U.S. Treasury · U.S. Bureau of Labor Statistics · "
+        "Yahoo Finance (WTI Futures, CL=F) · Federal Reserve Bank of New York · "
+        "Bank of Korea ECOS"
+    )
+
