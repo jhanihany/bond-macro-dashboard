@@ -185,15 +185,32 @@
         border: 1px solid #244dc9 !important;
         background:
             linear-gradient(135deg, #315efb, #274fcf) !important;
-        color: white !important;
+        color: #ffffff !important;
         font-weight: 720 !important;
         box-shadow: 0 6px 14px rgba(49,94,251,0.18);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
+    /* Streamlit theme textColor can override the nested <p>/<span>
+       inside a button, so force every button label element to white. */
+    div[data-testid="stButton"] > button *,
+    div[data-testid="stButton"] > button p,
+    div[data-testid="stButton"] > button span {
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        opacity: 1 !important;
+    }
+
     div[data-testid="stButton"] > button:hover {
         transform: translateY(-1px);
         box-shadow: 0 9px 20px rgba(49,94,251,0.24);
+        color: #ffffff !important;
+    }
+
+    div[data-testid="stButton"] > button:hover *,
+    div[data-testid="stButton"] > button:hover p,
+    div[data-testid="stButton"] > button:hover span {
+        color: #ffffff !important;
     }
 
     /* ---------- Section headers ---------- */
