@@ -51,6 +51,46 @@
 - Bank of Korea ECOS
 - Yahoo Finance (`CL=F`, WTI Futures)
 
+## 로컬 실행
+
+### 1. 패키지 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Streamlit Secrets 생성
+
+`.streamlit/secrets.toml.example`을 복사해서 `.streamlit/secrets.toml` 파일을 만듭니다.
+
+```toml
+ECOS_API_KEY = "YOUR_ECOS_API_KEY"
+BLS_API_KEY = "YOUR_BLS_API_KEY"
+```
+
+- `ECOS_API_KEY`: 필수
+- `BLS_API_KEY`: 선택 사항. 키가 없어도 BLS Public API 제한 내에서 동작할 수 있습니다.
+
+### 3. 실행
+
+```bash
+streamlit run app.py
+```
+
+## Streamlit Community Cloud 배포
+
+1. 이 폴더의 파일들을 GitHub repository에 업로드합니다.
+2. Streamlit Community Cloud에서 repository를 선택합니다.
+3. Main file path를 `app.py`로 지정합니다.
+4. App settings → Secrets에 아래 내용을 입력합니다.
+
+```toml
+ECOS_API_KEY = "YOUR_ECOS_API_KEY"
+BLS_API_KEY = "YOUR_BLS_API_KEY"
+```
+
+5. Deploy 합니다.
+
 ## 기준일 표시
 
 - 일간 시장지표: 실제 관측일 `YYYY-MM-DD`
@@ -151,3 +191,75 @@ CPI, Core CPI, NFP, 실업률, 한국 전산업생산 등의 직전월 대비
 중 하나를 표시합니다.
 
 이는 투자 시그널이나 공식 경기판정이 아니라 dashboard용 휴리스틱입니다.
+
+
+## Professional UI refresh
+
+데이터 수집·계산 로직은 유지하고 화면 디자인만 리디자인했습니다.
+
+주요 변경:
+- 금융 터미널 느낌의 navy hero header
+- 시간/데이터 상태를 compact chip 형태로 표시
+- 섹션 번호 및 설명을 포함한 통일된 heading
+- snapshot / curve / decomposition / regime 카드의 border, shadow, spacing 재설계
+- 미국/한국 패널 라벨 통일
+- dataframe 외곽 카드 스타일
+- refresh button 및 loading/status component 디자인 개선
+- 기본 Streamlit 느낌을 줄이고 여백·타이포그래피·색상 체계를 일관되게 정리
+
+
+## UI 파일 분리 구조
+
+디자인을 `app.py`에서 분리했습니다.
+
+```text
+bond-macro-dashboard/
+├─ app.py
+├─ style.css
+├─ requirements.txt
+├─ README.md
+└─ .streamlit/
+   └─ config.toml
+```
+
+역할:
+
+- `app.py`: 데이터 수집, 계산, Streamlit 화면 구조
+- `style.css`: 카드, 헤더, 여백, 타이포그래피 등 커스텀 디자인
+- `.streamlit/config.toml`: Streamlit 기본 테마
+- `requirements.txt`: Python 패키지
+- `README.md`: 프로젝트 설명
+
+### 앞으로 디자인만 바꾸고 싶을 때
+
+대부분의 경우 `style.css`만 수정하면 됩니다.
+
+색상, 카드 모양, 여백, 글자 크기, 그림자, 헤더 디자인 등은
+`style.css`에서 관리합니다.
+
+Streamlit의 기본 테마 색상이나 border radius 같은 전역 설정은
+`.streamlit/config.toml`에서 변경합니다.
+
+`app.py`는 디자인 구조 자체를 바꾸거나 새로운 UI 컴포넌트를 추가할 때만
+수정하면 됩니다.
+
+
+## BLS 안정성 개선
+
+미국 거시지표 수집 로직을 다음과 같이 변경했습니다.
+
+1. `BLS_API_KEY`가 있으면 등록 API로 먼저 요청
+2. 등록키가 만료/오류일 경우 registration key를 제거하고 비등록 API로 자동 재시도
+3. 네트워크/API 일시 오류는 1회 재시도
+4. 화면의 데이터 수집 상태에 실제 BLS 요청 모드를 표시
+5. Macro 계산에 필요한 최근 3개 calendar year만 요청
+
+BLS 공식 문서 기준으로 비등록 사용자는 한 요청당 최대 25개 series,
+최대 10년의 데이터를 요청할 수 있으므로 현재 6개 series / 3년 요청은
+비등록 fallback 범위 안에 있습니다.
+
+## Refresh 버튼 가독성 수정
+
+Streamlit theme의 `textColor`가 버튼 내부의 `<p>`/`<span>`까지
+덮어쓰는 경우가 있어 `style.css`에서 버튼 내부 모든 label 요소를
+흰색으로 강제하도록 수정했습니다.
