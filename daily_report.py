@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
+import re
 
 
 KOREA_TZ = ZoneInfo("Asia/Seoul")
