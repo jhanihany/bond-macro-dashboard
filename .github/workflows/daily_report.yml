@@ -1,34 +1,17 @@
-name: Daily Bond & Macro Email
+name: Schedule Test
 
 on:
   workflow_dispatch:
   schedule:
     - cron: "*/5 * * * *"
-      timezone: "Asia/Seoul"
 
 jobs:
-  send-daily-report:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Generate and send daily report
-        env:
-          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: python daily_report.py
+      - name: Check scheduled trigger
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Scheduled workflow is working"
+          date -u
