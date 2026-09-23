@@ -210,42 +210,6 @@ CPI, Core CPI, NFP, 실업률, 한국 전산업생산 등의 직전월 대비
 - 기본 Streamlit 느낌을 줄이고 여백·타이포그래피·색상 체계를 일관되게 정리
 
 
-## UI 파일 분리 구조
-
-디자인을 `app.py`에서 분리했습니다.
-
-```text
-bond-macro-dashboard/
-├─ app.py
-├─ style.css
-├─ requirements.txt
-├─ README.md
-└─ .streamlit/
-   └─ config.toml
-```
-
-역할:
-
-- `app.py`: 데이터 수집, 계산, Streamlit 화면 구조
-- `style.css`: 카드, 헤더, 여백, 타이포그래피 등 커스텀 디자인
-- `.streamlit/config.toml`: Streamlit 기본 테마
-- `requirements.txt`: Python 패키지
-- `README.md`: 프로젝트 설명
-
-### 앞으로 디자인만 바꾸고 싶을 때
-
-대부분의 경우 `style.css`만 수정하면 됩니다.
-
-색상, 카드 모양, 여백, 글자 크기, 그림자, 헤더 디자인 등은
-`style.css`에서 관리합니다.
-
-Streamlit의 기본 테마 색상이나 border radius 같은 전역 설정은
-`.streamlit/config.toml`에서 변경합니다.
-
-`app.py`는 디자인 구조 자체를 바꾸거나 새로운 UI 컴포넌트를 추가할 때만
-수정하면 됩니다.
-
-
 ## BLS 안정성 개선
 
 미국 거시지표 수집 로직을 다음과 같이 변경했습니다.
@@ -259,9 +223,3 @@ Streamlit의 기본 테마 색상이나 border radius 같은 전역 설정은
 BLS 공식 문서 기준으로 비등록 사용자는 한 요청당 최대 25개 series,
 최대 10년의 데이터를 요청할 수 있으므로 현재 6개 series / 3년 요청은
 비등록 fallback 범위 안에 있습니다.
-
-## Refresh 버튼 가독성 수정
-
-Streamlit theme의 `textColor`가 버튼 내부의 `<p>`/`<span>`까지
-덮어쓰는 경우가 있어 `style.css`에서 버튼 내부 모든 label 요소를
-흰색으로 강제하도록 수정했습니다.
