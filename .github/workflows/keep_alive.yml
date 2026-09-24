@@ -1,0 +1,16 @@
+name: Streamlit Keep Alive
+
+on:
+  schedule:
+    - cron: '0 */12 * * *' # 12시간마다 실행 (UTC)
+  workflow_dispatch:       # GitHub Actions에서 수동 실행 가능
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wake up Streamlit app
+        run: |
+          curl -L --fail --max-time 60 https://bond-macro-dashboard-j12.streamlit.app/ > /dev/null
+          echo "Streamlit app keep-alive request completed."
