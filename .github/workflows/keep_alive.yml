@@ -2,7 +2,7 @@ name: Streamlit Keep Alive
 
 on:
   schedule:
-    - cron: '0 */12 * * *' # 12시간마다 실행 (UTC)
+    - cron: '0 */6 * * *' # 6시간마다 실행 (UTC)
   workflow_dispatch:       # GitHub Actions에서 수동 실행 가능
 
 jobs:
