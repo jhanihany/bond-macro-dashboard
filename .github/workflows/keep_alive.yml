@@ -12,5 +12,6 @@ jobs:
     steps:
       - name: Wake up Streamlit app
         run: |
-          curl -L --fail --max-time 600 https://bond-macro-dashboard-j12.streamlit.app/ > /dev/null
-          echo "Streamlit app keep-alive request completed."
+          curl --fail --max-time 60 \
+            -A "Mozilla/5.0" \
+            https://bond-macro-dashboard-j12.streamlit.app/
