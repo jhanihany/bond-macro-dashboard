@@ -1,11 +1,8 @@
 name: Streamlit Keep Alive
 
 on:
-  # 6시간마다 실행 (UTC 기준)
   schedule:
-    - cron: '0 */6 * * *'
-
-  # GitHub Actions에서 수동 실행 가능
+    - cron: '0 */6 * * *' # 6시간마다 실행 (UTC)
   workflow_dispatch:
 
 jobs:
@@ -13,21 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # Python 환경 설정
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      # Playwright와 Chromium 설치
       - name: Install Playwright
         run: |
           python -m pip install --upgrade pip
           pip install playwright
           playwright install --with-deps chromium
 
-      # Streamlit 앱 접속 및 깨우기
       - name: Wake up Streamlit app
         run: |
           python - <<'PY'
@@ -38,82 +31,85 @@ jobs:
 
           with sync_playwright() as p:
               browser = p.chromium.launch(headless=True)
-              page = browser.new_page()
-
-              # 페이지 접속
-              print(f"Opening: {URL}")
-              page.goto(
-                  URL,
-                  wait_until="domcontentloaded",
-                  timeout=120000
+              context = browser.new_context(
+                  user_agent=(
+                      "Mozilla/5.0 (X11; Linux x86_64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/140.0.0.0 Safari/537.36"
+                  )
               )
+              page = context.new_page()
+              page.set_default_timeout(15000)
 
-              # 페이지가 렌더링될 시간 확보
+              print(f"Opening: {URL}")
+              page.goto(URL, wait_until="domcontentloaded", timeout=120000)
               page.wait_for_timeout(5000)
 
-              # 현재 페이지의 텍스트 확인
-              body_text = page.locator("body").inner_text()
+              print(f"Initial URL: {page.url}")
+              print(f"Page title: {page.title()}")
 
-              # Sleeping 상태인지 확인
-              if re.search(
-                  r"get this app back up!",
-                  body_text,
-                  re.I
-              ):
-                  print("Streamlit app is sleeping.")
+              body_text = page.locator("body").inner_text(timeout=10000)
+              print("Page text:")
+              print(body_text[:5000])
 
-                  # 깨우기 버튼 찾기
-                  button = page.get_by_role(
-                      "button",
-                      name=re.compile(
-                          r"get this app back up!",
-                          re.I
-                      )
-                  )
+              wake_patterns = [
+                  re.compile(r"yes, get this app back up!", re.I),
+                  re.compile(r"get this app back up!", re.I),
+              ]
 
-                  # 버튼 클릭
+              clicked = False
+
+              for pattern in wake_patterns:
+                  button = page.get_by_role("button", name=pattern)
                   if button.count() > 0:
+                      print(f"Wake-up button found: {pattern.pattern}")
                       button.first.click()
+                      clicked = True
                       print("Wake-up button clicked.")
+                      break
 
-                      # 앱이 깨어날 때까지 대기
-                      page.wait_for_timeout(30000)
+              if not clicked:
+                  text_locator = page.get_by_text(
+                      re.compile(r"get this app back up!", re.I)
+                  )
+                  if text_locator.count() > 0:
+                      print("Wake-up text found. Clicking it.")
+                      text_locator.first.click()
+                      clicked = True
+                      print("Wake-up control clicked.")
 
-                      # 다시 페이지 내용 확인
-                      final_text = page.locator(
-                          "body"
-                      ).inner_text()
+              if clicked:
+                  print("Waiting for the app to start...")
+                  page.wait_for_timeout(30000)
 
-                      # 여전히 Sleeping 상태라면 실패
-                      if re.search(
-                          r"get this app back up!",
-                          final_text,
-                          re.I
-                      ):
-                          print("ERROR: App is still sleeping.")
-                          page.screenshot(
-                              path="streamlit_wakeup_failed.png",
-                              full_page=True
-                          )
-                          raise SystemExit(1)
+                  print(f"Final URL: {page.url}")
+                  final_text = page.locator("body").inner_text(timeout=10000)
+                  print("Final page text:")
+                  print(final_text[:3000])
 
-                      print("Streamlit app successfully woke up.")
-
-                  else:
-                      print("ERROR: Wake-up button not found.")
+                  if re.search(r"get this app back up", final_text, re.I):
+                      print("ERROR: Streamlit still appears to be sleeping.")
+                      page.screenshot(path="streamlit_wakeup_failed.png", full_page=True)
                       raise SystemExit(1)
 
+                  print("Streamlit wake-up request completed.")
               else:
-                  print("Streamlit app is already awake.")
+                  if "streamlit" in body_text.lower() or "bond" in body_text.lower():
+                      print("Wake-up button not found; the app appears to be awake.")
+                  else:
+                      print("ERROR: Wake-up button was not found and the page does not look like the Streamlit app.")
+                      page.screenshot(path="streamlit_unexpected_page.png", full_page=True)
+                      raise SystemExit(1)
 
               browser.close()
           PY
 
-      # 실패 시 생성된 스크린샷 업로드
-      - name: Upload debug screenshot
+      - name: Upload debug screenshot if created
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: streamlit-debug-screenshot
-          path: streamlit_wakeup_failed.png
+          path: |
+            streamlit_wakeup_failed.png
+            streamlit_unexpected_page.png
           if-no-files-found: ignore
